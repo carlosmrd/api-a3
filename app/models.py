@@ -68,3 +68,53 @@ class Endereco(models.Model):
 
     def __str__(self):
         return f"{self.logradouro}, {self.numero} — {self.cidade}/{self.estado}"
+
+
+# lucas
+
+class Produto(models.Model):
+    # infos principais do tenis
+    nome = models.CharField(max_length=200, help_text="Ex: Air Jordan 1 Retro")
+    descricao = models.TextField(help_text="Detalhes do tênis (material, cor, etc.)")
+    preco = models.DecimalField(max_digits=10, decimal_places=2)
+    status_ativo = models.BooleanField(default=True)
+
+    # liga com o usuario que cadastrou o produto para saber quem foi
+    usuario_responsavel = models.ForeignKey(
+        Usuario,
+        on_delete=models.CASCADE,
+        related_name="tenis_cadastrados"
+    )
+
+    # detalhes especificos pro nosso nicho de tenis
+    marca = models.CharField(max_length=50, help_text="Ex: Nike, Adidas, Puma")
+    tamanho = models.CharField(max_length=5, help_text="Ex: 39, 40, 41")
+
+    def __str__(self):
+        return f"{self.nome} - Tam: {self.tamanho} (R$ {self.preco})"
+
+
+class FormaVenda(models.Model):
+    # opcoes de venda que a loja vai aceitar
+    TIPO_VENDA_CHOICES = [
+        ('UN', 'Unitária (Par)'),
+        ('AT', 'Atacado (Caixa com 12)'),
+        ('EN', 'Encomenda (Importação)'),
+    ]
+    tipo = models.CharField(max_length=2, choices=TIPO_VENDA_CHOICES, default='UN')
+
+    # como o cliente pode pagar esse tenis especifico
+    condicoes_pagamento = models.CharField(
+        max_length=200,
+        help_text="Ex: PIX com 10% OFF, Cartão em até 12x"
+    )
+
+    # vincula a regra de venda ao tenis certo
+    produto = models.ForeignKey(
+        Produto,
+        on_delete=models.CASCADE,
+        related_name="formas_venda"
+    )
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} - {self.produto.nome}"
