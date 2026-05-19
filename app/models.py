@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 
 class UsuarioManager(BaseUserManager):
+    #Registro para usuário
     def criar_usuario(self, email, password=None, **extra_fields):
         if not email:
             raise ValueError("O e-mail é obrigatório")
@@ -11,12 +12,18 @@ class UsuarioManager(BaseUserManager):
         usuario.save(using=self._db)
         return usuario
 
+    #Registro para funcionário ou superusuário
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         return self.criar_usuario(email, password, **extra_fields)
 
+#Parâmetros do usuário para o UsuarioManager
 class Usuario(AbstractBaseUser):
+    class Meta:
+        verbose_name = "Usuário"
+        verbose_name_plural = "Usuários"
+
     email = models.EmailField(max_length=254, unique=True)
     nome = models.CharField(max_length=100)
     telefone = models.CharField(max_length=11)
@@ -24,15 +31,18 @@ class Usuario(AbstractBaseUser):
     cpf = models.CharField(max_length=11, unique=True)
 
     is_active = models.BooleanField(default=True)
+    #Define se usuário é funcionário ou superusuário
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
 
+    #Define email como campo de login
     USERNAME_FIELD = "email"
+    #Define nome e cpf como campos obrigatórios ao criar um usuário, mesmo com o createsuperuser.
     REQUIRED_FIELDS = ["nome", "cpf"]
 
     objects = UsuarioManager()
 
-    #Propriedades para o AUTH_USER_MODEL
+    #Propriedades para o AUTH_USER_MODEL no settings.py
     @property
     def is_anonymous(self):
         return False
@@ -51,11 +61,17 @@ class Usuario(AbstractBaseUser):
         return self.email
 
 class Endereco(models.Model):
+    class Meta:
+        verbose_name = "Endereço"
+        verbose_name_plural = "Endereços"
+
+    #Cria uma foreign key "usuário_id" na tabela Endereco referente ao id na tabela Usuario
     usuario = models.ForeignKey(
         Usuario,
         on_delete=models.CASCADE,
         related_name="enderecos"
     )
+
     logradouro = models.CharField(max_length=200)
     numero = models.CharField(max_length=10)
     complemento = models.CharField(max_length=100, blank=True)
@@ -69,10 +85,44 @@ class Endereco(models.Model):
     def __str__(self):
         return f"{self.logradouro}, {self.numero} — {self.cidade}/{self.estado}"
 
+class CartaoCredito(models.Model):
+    class Meta:
+        verbose_name = "Cartão de Crédito"
+        verbose_name_plural = "Cartões de Crédito"
 
-# lucas
+    BANDEIRAS = [
+        ('visa', 'Visa'),
+        ('mastercard', 'Mastercard'),
+        ('elo', 'Elo'),
+        ('amex', 'American Express'),
+        ('hipercard', 'Hipercard'),
+    ]
+
+    #Cria uma foreign key "usuário_id" na tabela CartaoCredito referente ao id na tabela Usuario
+    usuario = models.ForeignKey(
+        Usuario,
+        on_delete=models.CASCADE,
+        related_name="cartoes"
+    )
+
+    nome_titular = models.CharField(max_length=100)
+    #Não salva número completo do cartão nem CVV, somente dados para exibição.
+    ultimos_digitos = models.CharField(max_length=4)
+    bandeira = models.CharField(max_length=20, choices=BANDEIRAS)
+    validade_mes = models.PositiveSmallIntegerField()
+    validade_ano = models.PositiveSmallIntegerField()
+    #Boolean para o cartão padrão
+    principal = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.get_bandeira_display()} •••• {self.ultimos_digitos} ({self.nome_titular})"
+
 
 class Produto(models.Model):
+    class Meta:
+        verbose_name = "Produto"
+        verbose_name_plural = "Produtos"
+
     # infos principais do tenis
     nome = models.CharField(max_length=200, help_text="Ex: Air Jordan 1 Retro")
     descricao = models.TextField(help_text="Detalhes do tênis (material, cor, etc.)")
@@ -86,13 +136,53 @@ class Produto(models.Model):
         related_name="tenis_cadastrados"
     )
 
-    # detalhes especificos pro nosso nicho de tenis
+    # detalhes especificos para o nosso nicho de tenis
     marca = models.CharField(max_length=50, help_text="Ex: Nike, Adidas, Puma")
-    tamanho = models.CharField(max_length=5, help_text="Ex: 39, 40, 41")
 
     def __str__(self):
-        return f"{self.nome} - Tam: {self.tamanho} (R$ {self.preco})"
+        return f"{self.nome} (R$ {self.preco})"
 
+class Estoque(models.Model):
+    class Meta:
+        verbose_name = "Estoque"
+        verbose_name_plural = "Estoques"
+        #UniqueConstraint para impedir que o mesmo tamanho seja cadastrado várias vezes no mesmo produto
+        constraints = [
+            models.UniqueConstraint(
+                fields=["produto", "tamanho"],
+                name="estoque_produto_tamanho_unico"
+            )
+        ]
+
+    TAMANHOS = [
+        ('33', '33'), ('33.5', '33,5'),
+        ('34', '34'), ('34.5', '34,5'),
+        ('35', '35'), ('35.5', '35,5'),
+        ('36', '36'), ('36.5', '36,5'),
+        ('37', '37'), ('37.5', '37,5'),
+        ('38', '38'), ('38.5', '38,5'),
+        ('39', '39'), ('39.5', '39,5'),
+        ('40', '40'), ('40.5', '40,5'),
+        ('41', '41'), ('41.5', '41,5'),
+        ('42', '42'), ('42.5', '42,5'),
+        ('43', '43'), ('43.5', '43,5'),
+        ('44', '44'), ('44.5', '44,5'),
+        ('45', '45'), ('45.5', '45,5'),
+        ('46', '46'), ('46.5', '46,5'),
+    ]
+
+    #Cria uma foreign key "usuário_id" na tabela Estoque referente ao id na tabela Produto
+    produto = models.ForeignKey(
+        Produto,
+        on_delete=models.CASCADE,
+        related_name="estoques"
+    )
+
+    tamanho = models.CharField(max_length=4, choices=TAMANHOS)
+    quantidade = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return f"{self.produto.nome} | Tam {self.tamanho} | Qtd: {self.quantidade}"
 
 class FormaVenda(models.Model):
     # opcoes de venda que a loja vai aceitar
