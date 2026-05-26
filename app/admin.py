@@ -1,38 +1,38 @@
 from django.contrib import admin
-from app.models import Usuario, Endereco, CartaoCredito, Produto, FormaVenda, Estoque
+from app.models import Usuario, Endereco, CartaoCredito, Produto, Estoque, Carrinho, ItemCarrinho
 
-@admin.register(Usuario)
 #Registro para usuário
+@admin.register(Usuario)
 class UsuarioAdmin(admin.ModelAdmin):
     list_display = ('id', 'email', 'nome', 'telefone', 'cpf', 'data_nascimento', 'is_active', 'is_staff')
     list_display_links = ('id', 'email')
     list_per_page = 20
     search_fields = ('id', 'email', 'cpf', 'nome')
 
-@admin.register(Endereco)
 #Registro para endereço de um usuário
+@admin.register(Endereco)
 class EnderecoAdmin(admin.ModelAdmin):
     list_display = ('id', 'usuario', 'logradouro', 'numero', 'bairro', 'cidade', 'estado', 'cep', 'principal')
     list_display_links = ('id', 'usuario')
     list_per_page = 20
     search_fields = ('usuario__email', 'cep', 'cidade')
 
+#Registro para cartão de crédito de um usuário (Só salva bandeira e últimos 4 digitos para exibição)
 @admin.register(CartaoCredito)
-#Registro para endereço de um usuário (Só salva bandeira e últimos 4 digitos para exibição)
 class CartaoCreditoAdmin(admin.ModelAdmin):
     list_display = ('id', 'usuario', 'bandeira', 'ultimos_digitos', 'nome_titular', 'validade_mes', 'validade_ano', 'principal')
     list_display_links = ('id', 'usuario')
     list_per_page = 20
     search_fields = ('usuario__email', 'nome_titular', 'ultimos_digitos')
 
+#Classe para usar o model de estoque dentro de outra página (Produto).
 class EstoqueInline(admin.TabularInline):
-    #Classe para usar o model de estoque dentro de outra página (Produto).
     model = Estoque
     extra = 3
     fields = ('tamanho', 'quantidade')
 
-@admin.register(Produto)
 #Registro para produto
+@admin.register(Produto)
 class ProdutoAdmin(admin.ModelAdmin):
     list_display = ('id', 'nome', 'marca', 'preco', 'status_ativo', 'usuario_responsavel')
     list_display_links = ('id', 'nome')
@@ -41,10 +41,20 @@ class ProdutoAdmin(admin.ModelAdmin):
     list_per_page = 20
     inlines = [EstoqueInline]
 
-@admin.register(FormaVenda)
-class FormaVendaAdmin(admin.ModelAdmin):
-    list_display = ('id', 'produto', 'tipo', 'condicoes_pagamento')
-    list_display_links = ('id', 'produto')
+#Classe para usar o model de ItemCarrinho dentro de outra página (Carrinho).
+class ItemCarrinhoInline(admin.TabularInline):
+    model = ItemCarrinho
+    #Não exibe linhas porque não precisa ser cadastrado manualmente
+    extra = 0
+    fields = ('estoque', 'quantidade')
+    #Impede que o carrinho seja editado pelo Django Admin, comentado para teste.
+    # readonly_fields = ('estoque')
+
+#Registro para carrinho
+@admin.register(Carrinho)
+class CarrinhoAdmin(admin.ModelAdmin):
+    list_display = ('id', 'usuario', 'total')
+    list_display_links = ('id', 'usuario')
+    search_fields = ('usuario__email',)
     list_per_page = 20
-    search_fields = ('produto__nome', 'condicoes_pagamento')
-    list_filter = ('tipo',)
+    inlines = [ItemCarrinhoInline]

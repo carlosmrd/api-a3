@@ -171,7 +171,7 @@ class Estoque(models.Model):
         ('46', '46'), ('46.5', '46,5'),
     ]
 
-    #Cria uma foreign key "usuário_id" na tabela Estoque referente ao id na tabela Produto
+    #Cria uma foreign key "produto_id" na tabela Estoque referente ao id na tabela Produto
     produto = models.ForeignKey(
         Produto,
         on_delete=models.CASCADE,
@@ -184,27 +184,56 @@ class Estoque(models.Model):
     def __str__(self):
         return f"{self.produto.nome} | Tam {self.tamanho} | Qtd: {self.quantidade}"
 
-class FormaVenda(models.Model):
-    # opcoes de venda que a loja vai aceitar
-    TIPO_VENDA_CHOICES = [
-        ('UN', 'Unitária (Par)'),
-        ('AT', 'Atacado (Caixa com 12)'),
-        ('EN', 'Encomenda (Importação)'),
-    ]
-    tipo = models.CharField(max_length=2, choices=TIPO_VENDA_CHOICES, default='UN')
+class Carrinho(models.Model):
+    class Meta:
+        verbose_name = "Carrinho"
+        verbose_name_plural = "Carrinhos"
 
-    # como o cliente pode pagar esse tenis especifico
-    condicoes_pagamento = models.CharField(
-        max_length=200,
-        help_text="Ex: PIX com 10% OFF, Cartão em até 12x"
-    )
-
-    # vincula a regra de venda ao tenis certo
-    produto = models.ForeignKey(
-        Produto,
+    #Cria uma foreign key "usuário_id" na tabela Carrinho referente ao id na tabela Usuário
+    #OneToOne para criar um único carrinho para cada usuário
+    usuario = models.OneToOneField(
+        Usuario,
         on_delete=models.CASCADE,
-        related_name="formas_venda"
+        related_name="carrinho"
     )
+
+    def total(self):
+        return sum(item.subtotal() for item in self.itens.all())
 
     def __str__(self):
-        return f"{self.get_tipo_display()} - {self.produto.nome}"
+        return f"Carrinho de {self.usuario.email}"
+
+class ItemCarrinho(models.Model):
+    #Item carrinho serve como intermediário entre Carrinho e Estoque, para definir a quantidade de um produto que vai
+    #ser comprada e o tamanho que o cliente quer
+    class Meta:
+        verbose_name = "Item do Carrinho"
+        verbose_name_plural = "Itens do Carrinho"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["carrinho", "estoque"],
+                name="item_carrinho_estoque_unico"
+            )
+        ]
+
+    #Cria uma foreign key "carrinho_id" na tabela ItemCarrinho referente ao id na tabela Carrinho
+    #Conecta o item de ItemCarrinho com o Carrinho (que conecta a cliente)
+    carrinho = models.ForeignKey(
+        Carrinho,
+        on_delete=models.CASCADE,
+        related_name="itens"
+    )
+
+    #Conecta o item de ItemCarrinho ao Estoque (Que tem informação de tamanhos e quantidade em estoque)
+    estoque = models.ForeignKey(
+        Estoque,
+        on_delete=models.CASCADE,
+        related_name="itens_carrinho"
+    )
+    quantidade = models.PositiveIntegerField(default=1)
+
+    def subtotal(self):
+        return self.quantidade * self.estoque.produto.preco
+
+    def __str__(self):
+        return f"{self.quantidade}x {self.estoque.produto.nome} (Tam {self.estoque.tamanho})"
