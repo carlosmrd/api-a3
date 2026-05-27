@@ -1,5 +1,5 @@
 from django.contrib import admin
-from app.models import Usuario, Endereco, CartaoCredito, Produto, Estoque, Carrinho, ItemCarrinho
+from app.models import Usuario, Endereco, CartaoCredito, Produto, Estoque, Carrinho, ItemCarrinho, Pedido, ItemPedido
 
 #Registro para usuário
 @admin.register(Usuario)
@@ -20,7 +20,8 @@ class EnderecoAdmin(admin.ModelAdmin):
 #Registro para cartão de crédito de um usuário (Só salva bandeira e últimos 4 digitos para exibição)
 @admin.register(CartaoCredito)
 class CartaoCreditoAdmin(admin.ModelAdmin):
-    list_display = ('id', 'usuario', 'bandeira', 'ultimos_digitos', 'nome_titular', 'validade_mes', 'validade_ano', 'principal')
+    list_display = ('id', 'usuario', 'bandeira', 'ultimos_digitos', 'nome_titular', 'validade_mes', 'validade_ano',
+                    'principal')
     list_display_links = ('id', 'usuario')
     list_per_page = 20
     search_fields = ('usuario__email', 'nome_titular', 'ultimos_digitos')
@@ -48,7 +49,7 @@ class ItemCarrinhoInline(admin.TabularInline):
     extra = 0
     fields = ('estoque', 'quantidade')
     #Impede que o carrinho seja editado pelo Django Admin, comentado para teste.
-    # readonly_fields = ('estoque')
+    #readonly_fields = ('estoque')
 
 #Registro para carrinho
 @admin.register(Carrinho)
@@ -58,3 +59,22 @@ class CarrinhoAdmin(admin.ModelAdmin):
     search_fields = ('usuario__email',)
     list_per_page = 20
     inlines = [ItemCarrinhoInline]
+
+#Classe para usar o model de ItemPedido dentro de outra página (Pedido).
+class ItemPedidoInline(admin.TabularInline):
+    model = ItemPedido
+    #Não exibe linhas porque não precisa ser cadastrado manualmente
+    extra = 0
+    fields = ('estoque', 'quantidade', 'preco_unitario')
+    #Impede que o pedido seja editado pelo Django Admin
+    readonly_fields = ('estoque', 'quantidade', 'preco_unitario')
+
+#Registro para pedido
+@admin.register(Pedido)
+class PedidoAdmin(admin.ModelAdmin):
+    list_display = ('id', 'usuario', 'status', 'total', 'data_criacao')
+    list_display_links = ('id', 'usuario')
+    list_filter = ('status',)
+    search_fields = ('usuario__email',)
+    list_per_page = 20
+    inlines = [ItemPedidoInline]

@@ -65,13 +65,14 @@ class Endereco(models.Model):
         verbose_name = "Endereço"
         verbose_name_plural = "Endereços"
 
-    #Cria uma foreign key "usuário_id" na tabela Endereco referente ao id na tabela Usuario
+    #Cria uma foreign key "usuario_id" na tabela Endereco referente ao id na tabela Usuario
     usuario = models.ForeignKey(
         Usuario,
         on_delete=models.CASCADE,
         related_name="enderecos"
     )
 
+    #Informações do endereço
     logradouro = models.CharField(max_length=200)
     numero = models.CharField(max_length=10)
     complemento = models.CharField(max_length=100, blank=True)
@@ -98,7 +99,7 @@ class CartaoCredito(models.Model):
         ('hipercard', 'Hipercard'),
     ]
 
-    #Cria uma foreign key "usuário_id" na tabela CartaoCredito referente ao id na tabela Usuario
+    #Cria uma foreign key "usuario_id" na tabela CartaoCredito referente ao id na tabela Usuario
     usuario = models.ForeignKey(
         Usuario,
         on_delete=models.CASCADE,
@@ -189,7 +190,7 @@ class Carrinho(models.Model):
         verbose_name = "Carrinho"
         verbose_name_plural = "Carrinhos"
 
-    #Cria uma foreign key "usuário_id" na tabela Carrinho referente ao id na tabela Usuário
+    #Cria uma foreign key "usuario_id" na tabela Carrinho referente ao id na tabela Usuário
     #OneToOne para criar um único carrinho para cada usuário
     usuario = models.OneToOneField(
         Usuario,
@@ -204,7 +205,7 @@ class Carrinho(models.Model):
         return f"Carrinho de {self.usuario.email}"
 
 class ItemCarrinho(models.Model):
-    #Item carrinho serve como intermediário entre Carrinho e Estoque, para definir a quantidade de um produto que vai
+    #ItemCarrinho serve como intermediário entre Carrinho e Estoque, para definir a quantidade de um produto que vai
     #ser comprada e o tamanho que o cliente quer
     class Meta:
         verbose_name = "Item do Carrinho"
@@ -234,6 +235,76 @@ class ItemCarrinho(models.Model):
 
     def subtotal(self):
         return self.quantidade * self.estoque.produto.preco
+
+    def __str__(self):
+        return f"{self.quantidade}x {self.estoque.produto.nome} (Tam {self.estoque.tamanho})"
+
+class Pedido(models.Model):
+    class Meta:
+        verbose_name = "Pedido"
+        verbose_name_plural = "Pedidos"
+
+    STATUS = [
+        ('pendente', 'Pendente'),
+        ('pago', 'Pago'),
+        ('enviado', 'Enviado'),
+        ('entregue', 'Entregue'),
+        ('cancelado', 'Cancelado'),
+    ]
+
+    #Cria uma foreign key "usuario_id" na tabela Pedido referente ao id na tabela Usuário
+    usuario = models.ForeignKey(
+        Usuario,
+        on_delete=models.CASCADE,
+        related_name="pedidos"
+    )
+
+    #Cria uma foreign key "endereco_id" na tabela Pedido referente ao id na tabela Endereco
+    #Referente ao endereço selecionado no checkout
+    endereco = models.ForeignKey(
+        Endereco,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="pedidos"
+    )
+
+    #Informações do pedido
+    status = models.CharField(max_length=10, choices=STATUS, default='pendente')
+    data_criacao = models.DateTimeField(auto_now_add=True)
+    total = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"Pedido #{self.id} - {self.usuario.email} ({self.get_status_display()})"
+
+
+class ItemPedido(models.Model):
+    #ItemPedido serve para registrar os ItemCarrinho no
+    class Meta:
+        verbose_name = "Item do Pedido"
+        verbose_name_plural = "Itens do Pedido"
+
+    #Cria uma foreign key "usuario_id" na tabela ItemPedido referente ao id na tabela Usuário
+    pedido = models.ForeignKey(
+        Pedido,
+        on_delete=models.CASCADE,
+        related_name="itens"
+    )
+
+    #Conecta o item de ItemCarrinho ao Estoque (Que tem informação de tamanhos e quantidade em estoque)
+    #SET_NULL ao invés de CASCADE no delete para salvar pedidos mesmo que o produto seja excluído
+    estoque = models.ForeignKey(
+        Estoque,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="itens_pedido"
+    )
+
+    #Preço e quantidade congelados para serem registrados no momento da compra
+    quantidade = models.PositiveIntegerField()
+    preco_unitario = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def subtotal(self):
+        return self.quantidade * self.preco_unitario
 
     def __str__(self):
         return f"{self.quantidade}x {self.estoque.produto.nome} (Tam {self.estoque.tamanho})"
