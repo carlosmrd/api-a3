@@ -1,11 +1,13 @@
 from rest_framework import viewsets
-from app.models import Produto
-from app.serializers import ProdutoSerializer
+from app.models import Produto, Estoque
+from app.serializers import ProdutoSerializer, EstoqueSerializer
 
-# lucas -  CRUD completo de produtos
+# lucas - viewset para o CRUD completo de produtos
 class ProdutoViewSet(viewsets.ModelViewSet):
-    # Puxa todos os produtos do banco
     queryset = Produto.objects.all()
-    # Diz qual tradutor (serializer) vai ser usado
     serializer_class = ProdutoSerializer
-    serializer_class = ProdutoSerializer
+
+# lucas - viewset para controlar as quantidades e tamanhos no estoque
+class EstoqueViewSet(viewsets.ModelViewSet):
+    queryset = Estoque.objects.all()
+    serializer_class = EstoqueSerializer

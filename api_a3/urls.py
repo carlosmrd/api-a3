@@ -7,6 +7,8 @@ from app import views
 router = DefaultRouter()
 router.register(r'produtos', views.ProdutoViewSet, basename='produto')
 
+router.register(r'estoque', views.EstoqueViewSet, basename='estoque')
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     # Inclui todas as rotas automáticas que o DRF criou
