@@ -49,7 +49,7 @@ class ItemCarrinhoInline(admin.TabularInline):
     extra = 0
     fields = ('estoque', 'quantidade')
     #Impede que o carrinho seja editado pelo Django Admin, comentado para teste.
-    #readonly_fields = ('estoque')
+    #readonly_fields = ('estoque',)
 
 #Registro para carrinho
 @admin.register(Carrinho)

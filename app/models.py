@@ -27,7 +27,7 @@ class Usuario(AbstractBaseUser):
     email = models.EmailField(max_length=254, unique=True)
     nome = models.CharField(max_length=100)
     telefone = models.CharField(max_length=11)
-    data_nascimento = models.DateField(null=True, blank=True)
+    data_nascimento = models.DateField()
     cpf = models.CharField(max_length=11, unique=True)
 
     is_active = models.BooleanField(default=True)
@@ -278,12 +278,12 @@ class Pedido(models.Model):
 
 
 class ItemPedido(models.Model):
-    #ItemPedido serve para registrar os ItemCarrinho no
+    #ItemPedido serve para registrar os ItemCarrinho no Pedido final
     class Meta:
         verbose_name = "Item do Pedido"
         verbose_name_plural = "Itens do Pedido"
 
-    #Cria uma foreign key "usuario_id" na tabela ItemPedido referente ao id na tabela Usuário
+    #Cria uma foreign key "pedido_id" na tabela ItemPedido referente ao id na tabela Pedido
     pedido = models.ForeignKey(
         Pedido,
         on_delete=models.CASCADE,
@@ -307,4 +307,7 @@ class ItemPedido(models.Model):
         return self.quantidade * self.preco_unitario
 
     def __str__(self):
-        return f"{self.quantidade}x {self.estoque.produto.nome} (Tam {self.estoque.tamanho})"
+        if self.estoque:
+            return f"{self.quantidade}x {self.estoque.produto.nome} (Tam {self.estoque.tamanho})"
+        #Evita erros em produtos removidos, que vão retornar None
+        return f"{self.quantidade}x [produto removido]"
