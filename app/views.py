@@ -1,3 +1,5 @@
+from typing import cast
+from django.db import transaction
 from django.contrib.auth import authenticate
 from rest_framework import status, viewsets
 from rest_framework.authtoken.models import Token
@@ -5,10 +7,11 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from app.models import Produto, Estoque
+from app.models import Produto, Estoque, Endereco
 from app.serializers import (
     ProdutoSerializer, EstoqueSerializer,
-    UsuarioSerializer, UsuarioDetalhesSerializer
+    UsuarioSerializer, UsuarioDetalhesSerializer,
+    EnderecoSerializer
 )
 
 
@@ -62,6 +65,41 @@ class PerfilView(APIView):
     def get(self, request):
         serializer = UsuarioDetalhesSerializer(request.user)
         return Response(serializer.data)
+
+#Cadastro de endereço
+class EnderecoViewSet(viewsets.ModelViewSet):
+    serializer_class = EnderecoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Endereco.objects.filter(usuario=self.request.user)
+
+    #Transaction atomic só salva alterações no banco se tudo for executado com sucesso
+    #Caso o campo "principal" de um endereço seja marcado como true perform_create e perform_update alteram o mesmo
+    #campo nos outros endereços do usuário para false
+    #principal_enviado e principal_final servem para definir todos os endereços principais para false antes de uma
+    #atualização, caso contrário o unique constraint lança erro
+    @transaction.atomic
+    def perform_create(self, serializer):
+        possui_endereco = Endereco.objects.filter(usuario=self.request.user).exists()
+        principal_enviado = serializer.validated_data.get('principal', False)
+        principal_final = True if not possui_endereco else principal_enviado
+
+        if principal_final:
+            Endereco.objects.filter(usuario=self.request.user).update(principal=False)
+
+        serializer.save(usuario=self.request.user, principal=principal_final)
+
+    @transaction.atomic
+    def perform_update(self, serializer):
+        principal_enviado = serializer.validated_data.get('principal', None)
+
+        if principal_enviado is True:
+            Endereco.objects.filter(
+                usuario=self.request.user
+            ).exclude(id=self.get_object().id).update(principal=False)
+
+        serializer.save()
 
 # lucas - viewset para o CRUD completo de produtos
 class ProdutoViewSet(viewsets.ModelViewSet):

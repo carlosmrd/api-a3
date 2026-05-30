@@ -1,9 +1,9 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
-from app.models import Produto, Estoque, Usuario
+from app.models import Produto, Estoque, Usuario, Endereco
 
-#Cadastro de usuário — usado no POST /api/auth/registro/
+#Cadastro de usuário
 class UsuarioSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
 
@@ -33,6 +33,24 @@ class UsuarioDetalhesSerializer(serializers.ModelSerializer):
         model = Usuario
         #Não exibe senha
         fields = ['id', 'email', 'nome', 'telefone', 'cpf', 'data_nascimento']
+
+#Cadastro de endereço para o usuário logado
+class EnderecoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Endereco
+        fields = [
+            'id',
+            'usuario',
+            'logradouro',
+            'numero',
+            'complemento',
+            'bairro',
+            'cidade',
+            'estado',
+            'cep',
+            'principal',
+        ]
+        read_only_fields = ['id', 'usuario']
 
 # lucas - estoque
 class EstoqueSerializer(serializers.ModelSerializer):

@@ -6,8 +6,8 @@ from app import views
 # lucas - configurando as rotas da api com o roteador do DRF
 router = DefaultRouter()
 router.register(r'produtos', views.ProdutoViewSet, basename='produto')
-
 router.register(r'estoques', views.EstoqueViewSet, basename='estoque')
+router.register(r'enderecos', views.EnderecoViewSet, basename='enderecos')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

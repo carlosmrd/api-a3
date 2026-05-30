@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 
 class UsuarioManager(BaseUserManager):
@@ -64,6 +65,14 @@ class Endereco(models.Model):
     class Meta:
         verbose_name = "Endereço"
         verbose_name_plural = "Endereços"
+        #Faz com que cada usuário só possa ter um endereço marcado como principal.
+        constraints = [
+            models.UniqueConstraint(
+                fields=['usuario'],
+                condition=Q(principal=True),
+                name='unique_endereco_principal_por_usuario'
+            )
+        ]
 
     #Cria uma foreign key "usuario_id" na tabela Endereco referente ao id na tabela Usuario
     usuario = models.ForeignKey(
