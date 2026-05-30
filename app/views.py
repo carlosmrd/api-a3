@@ -1,6 +1,5 @@
-from typing import cast
-from django.db import transaction
 from django.contrib.auth import authenticate
+from django.db import transaction
 from rest_framework import status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
