@@ -10,6 +10,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
     class Meta:
         model = Usuario
         fields = ['id', 'email', 'password', 'nome', 'telefone', 'cpf', 'data_nascimento']
+        read_only_fields = ['id']
 
     #Valida se a senha respeita os parâmetros definidos no settings.py
     def validate_password(self, value):
