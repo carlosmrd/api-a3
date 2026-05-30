@@ -71,6 +71,7 @@ class EnderecoViewSet(viewsets.ModelViewSet):
     serializer_class = EnderecoSerializer
     permission_classes = [IsAuthenticated]
 
+    #Só retorna endereços do usuário que fez a requisição
     def get_queryset(self):
         return Endereco.objects.filter(usuario=self.request.user)
 
