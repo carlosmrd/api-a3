@@ -8,6 +8,8 @@ router = DefaultRouter()
 router.register(r'produtos', views.ProdutoViewSet, basename='produto')
 router.register(r'estoques', views.EstoqueViewSet, basename='estoque')
 router.register(r'enderecos', views.EnderecoViewSet, basename='enderecos')
+router.register(r'carrinho', views.CarrinhoViewSet, basename='carrinho')
+router.register(r'itens-carrinho', views.ItemCarrinhoViewSet, basename='itens-carrinho')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

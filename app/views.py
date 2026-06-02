@@ -6,13 +6,11 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from app.models import Produto, Estoque, Endereco
+from app.models import Produto, Estoque, Endereco, ItemCarrinho, Carrinho
 from app.serializers import (
-    ProdutoSerializer, EstoqueSerializer,
-    UsuarioSerializer, UsuarioDetalhesSerializer,
-    EnderecoSerializer
+    ProdutoSerializer, EstoqueSerializer,UsuarioSerializer, UsuarioDetalhesSerializer,EnderecoSerializer,
+    ItemCarrinhoSerializer, AtualizarItemCarrinhoSerializer, CarrinhoSerializer
 )
-
 
 #Cadastro de Usuário - POST /api/auth/registro/
 class RegistroView(APIView):
@@ -124,3 +122,77 @@ class EstoqueViewSet(viewsets.ModelViewSet):
             return [AllowAny()]
         #Permissão de escrita para funcionário
         return [IsAdminUser()]
+
+#View do carrinho do usuário logado
+class CarrinhoViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        #Cria um carrinho se ainda não existir um para o usuário. Exibe o já criado caso existente
+        carrinho, _ = Carrinho.objects.get_or_create(usuario=request.user)
+        serializer = CarrinhoSerializer(carrinho)
+        return Response(serializer.data)
+
+#View para manipulação dos ItemCarrinho
+class ItemCarrinhoViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+
+    #Restringe operações ao carrinho do usuário logado
+    def get_queryset(self):
+        #Verifica se o carrinho do usuário já existe. Cria carrinho se não existir
+        carrinho, _ = Carrinho.objects.get_or_create(usuario=self.request.user)
+        return ItemCarrinho.objects.filter(
+            carrinho=carrinho
+        ).select_related('estoque', 'estoque__produto')
+
+    def get_serializer_class(self):
+        if self.action in ['update', 'partial_update']:
+            return AtualizarItemCarrinhoSerializer
+        return ItemCarrinhoSerializer
+
+    #Cria ItemCarrinho referente ao estoque
+    def create(self, request, *args, **kwargs):
+        carrinho, _ = Carrinho.objects.get_or_create(usuario=request.user)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        estoque = serializer.validated_data['estoque']
+        quantidade = serializer.validated_data['quantidade']
+
+        #Verifica se o item já existe no carrinho
+        item_existente = ItemCarrinho.objects.filter(
+            carrinho=carrinho,
+            estoque=estoque
+        ).first()
+
+        #Se item já estiver no carrinho, adiciona à quantidade e impede duplicidade
+        if item_existente:
+            nova_quantidade = item_existente.quantidade + quantidade
+
+            #Verifica se quantidade em estoque existe antes de adicionar
+            if nova_quantidade > estoque.quantidade:
+                return Response(
+                    {'erro': 'Quantidade total no carrinho maior que a disponível em estoque.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            item_existente.quantidade = nova_quantidade
+            item_existente.save()
+
+            return Response(
+                ItemCarrinhoSerializer(item_existente).data,
+                status=status.HTTP_200_OK
+            )
+
+        #Adiciona item se não existir no carrinho
+        item = ItemCarrinho.objects.create(
+            carrinho=carrinho,
+            estoque=estoque,
+            quantidade=quantidade
+        )
+
+        return Response(
+            ItemCarrinhoSerializer(item).data,
+            status=status.HTTP_201_CREATED
+        )
