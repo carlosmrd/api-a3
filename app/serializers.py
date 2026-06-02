@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
-from app.models import Produto, Estoque, Usuario, Endereco, Carrinho, ItemCarrinho
+from app.models import Produto, Estoque, Usuario, Endereco, Carrinho, ItemCarrinho, Pedido, ItemPedido
 
 #Cadastro de usuário
 class UsuarioSerializer(serializers.ModelSerializer):
@@ -51,6 +51,29 @@ class EnderecoSerializer(serializers.ModelSerializer):
             'principal',
         ]
         read_only_fields = ['id', 'usuario']
+
+# lucas - estoque
+class EstoqueSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Estoque
+        fields = ['id', 'produto', 'tamanho', 'quantidade']
+
+# lucas - produto
+class ProdutoSerializer(serializers.ModelSerializer):
+    estoques = EstoqueSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Produto
+        fields = [
+            'id',
+            'nome',
+            'descricao',
+            'preco',
+            'marca',
+            'status_ativo',
+            'usuario_responsavel',
+            'estoques'
+        ]
 
 #Cria itens referenciando estoque para exibição no carrinho
 class ItemCarrinhoSerializer(serializers.ModelSerializer):
@@ -130,25 +153,69 @@ class CarrinhoSerializer(serializers.ModelSerializer):
             for item in obj.itens.all()
         )
 
-# lucas - estoque
-class EstoqueSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Estoque
-        fields = ['id', 'produto', 'tamanho', 'quantidade']
+#Valida se existe endereço para o checkout
+class CriarPedidoSerializer(serializers.Serializer):
+    endereco_id = serializers.IntegerField()
 
-# lucas - produto
-class ProdutoSerializer(serializers.ModelSerializer):
-    estoques = EstoqueSerializer(many=True, read_only=True)
+    def validate_endereco_id(self, value):
+        request = self.context['request']
+
+        if not Endereco.objects.filter(id=value, usuario=request.user).exists():
+            raise serializers.ValidationError("Endereço inválido para este usuário.")
+
+        return value
+
+#Leitura para os itens incluídos no pedido pela tabela de estoque
+class ItemPedidoSerializer(serializers.ModelSerializer):
+    produto = serializers.SerializerMethodField()
+    tamanho = serializers.SerializerMethodField()
+    subtotal = serializers.SerializerMethodField()
 
     class Meta:
-        model = Produto
+        model = ItemPedido
         fields = [
             'id',
-            'nome',
-            'descricao',
-            'preco',
-            'marca',
-            'status_ativo',
-            'usuario_responsavel',
-            'estoques'
+            'estoque',
+            'produto',
+            'tamanho',
+            'quantidade',
+            'preco_unitario',
+            'subtotal',
+        ]
+
+    def get_produto(self, obj):
+        if obj.estoque and obj.estoque.produto:
+            return obj.estoque.produto.nome
+        return '[produto removido]'
+
+    def get_tamanho(self, obj):
+        if obj.estoque:
+            return obj.estoque.tamanho
+        return None
+
+    def get_subtotal(self, obj):
+        return obj.subtotal()
+
+#Leitura para o pedido
+class PedidoSerializer(serializers.ModelSerializer):
+    itens = ItemPedidoSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Pedido
+        fields = [
+            'id',
+            'usuario',
+            'endereco',
+            'status',
+            'data_criacao',
+            'total',
+            'itens',
+        ]
+        read_only_fields = [
+            'id',
+            'usuario',
+            'status',
+            'data_criacao',
+            'total',
+            'itens',
         ]

@@ -10,6 +10,7 @@ router.register(r'estoques', views.EstoqueViewSet, basename='estoque')
 router.register(r'enderecos', views.EnderecoViewSet, basename='enderecos')
 router.register(r'carrinho', views.CarrinhoViewSet, basename='carrinho')
 router.register(r'itens-carrinho', views.ItemCarrinhoViewSet, basename='itens-carrinho')
+router.register(r'pedidos', views.PedidoViewSet, basename='pedidos')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

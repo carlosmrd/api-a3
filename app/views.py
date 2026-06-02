@@ -1,15 +1,17 @@
 from django.contrib.auth import authenticate
 from django.db import transaction
+from decimal import Decimal
 from rest_framework import status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from app.models import Produto, Estoque, Endereco, ItemCarrinho, Carrinho
+from app.models import Produto, Estoque, Endereco, ItemCarrinho, Carrinho, ItemPedido, Pedido
 from app.serializers import (
     ProdutoSerializer, EstoqueSerializer,UsuarioSerializer, UsuarioDetalhesSerializer,EnderecoSerializer,
-    ItemCarrinhoSerializer, AtualizarItemCarrinhoSerializer, CarrinhoSerializer
+    ItemCarrinhoSerializer, AtualizarItemCarrinhoSerializer, CarrinhoSerializer, PedidoSerializer,
+    CriarPedidoSerializer
 )
 
 #Cadastro de Usuário - POST /api/auth/registro/
@@ -194,5 +196,94 @@ class ItemCarrinhoViewSet(viewsets.ModelViewSet):
 
         return Response(
             ItemCarrinhoSerializer(item).data,
+            status=status.HTTP_201_CREATED
+        )
+
+#Cria pedido usando o carrinho do usuário logado ao receber uma requisição post com o "endereco_id" do endereço
+#de entrega
+class PedidoViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    #Não permite PUT, PATCH, DELETE
+    http_method_names = ['get', 'post', 'head', 'options']
+
+    #Restringe operações aos pedidos do usuário logado
+    def get_queryset(self):
+        return Pedido.objects.filter(usuario=self.request.user).select_related(
+            'endereco'
+        ).prefetch_related(
+            'itens__estoque__produto'
+        )
+
+    #Define qual serializer a operação vai usar
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return CriarPedidoSerializer
+        return PedidoSerializer
+
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        #Valida a requisição
+        serializer = self.get_serializer(
+            data=request.data,
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        #Busca o endereço recebido no banco
+        endereco = Endereco.objects.get(
+            id=serializer.validated_data['endereco_id'],
+            usuario=request.user
+        )
+
+        #Busca o carrinho do usuário logado e verifica se está vazio
+        carrinho, _ = Carrinho.objects.get_or_create(usuario=request.user)
+        itens_carrinho = ItemCarrinho.objects.filter(
+            carrinho=carrinho
+        ).select_related('estoque', 'estoque__produto')
+
+        if not itens_carrinho.exists():
+            return Response(
+                {'erro': 'O carrinho está vazio.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        #Verifica se os itens do carrinho existem em estoque e soma os subtotais
+        total = Decimal('0.00')
+
+        for item in itens_carrinho:
+            if item.quantidade > item.estoque.quantidade:
+                return Response(
+                    {
+                        'erro': f'Estoque insuficiente para o produto {item.estoque.produto.nome}.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            total += item.subtotal()
+
+        #Cria objeto pedido
+        pedido = Pedido.objects.create(
+            usuario=request.user,
+            endereco=endereco,
+            total=total
+        )
+
+        #Cria ItemPedido para cada ItemCarrinho e baixa a quantidade correspondente do estoque
+        for item in itens_carrinho:
+            ItemPedido.objects.create(
+                pedido=pedido,
+                estoque=item.estoque,
+                quantidade=item.quantidade,
+                preco_unitario=item.estoque.produto.preco
+            )
+
+            item.estoque.quantidade -= item.quantidade
+            item.estoque.save()
+
+        #Limpa o carrinho
+        itens_carrinho.delete()
+
+        return Response(
+            PedidoSerializer(pedido).data,
             status=status.HTTP_201_CREATED
         )
