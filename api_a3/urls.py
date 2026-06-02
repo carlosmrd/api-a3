@@ -11,6 +11,7 @@ router.register(r'enderecos', views.EnderecoViewSet, basename='enderecos')
 router.register(r'carrinho', views.CarrinhoViewSet, basename='carrinho')
 router.register(r'itens-carrinho', views.ItemCarrinhoViewSet, basename='itens-carrinho')
 router.register(r'pedidos', views.PedidoViewSet, basename='pedidos')
+router.register(r'cartoes', views.CartaoCreditoViewSet, basename='cartoes')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

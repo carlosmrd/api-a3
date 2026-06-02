@@ -96,9 +96,17 @@ class Endereco(models.Model):
         return f"{self.logradouro}, {self.numero} — {self.cidade}/{self.estado}"
 
 class CartaoCredito(models.Model):
+    #Faz com que cada usuário só possa ter um cartão marcado como principal.
     class Meta:
         verbose_name = "Cartão de Crédito"
         verbose_name_plural = "Cartões de Crédito"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['usuario'],
+                condition=Q(principal=True),
+                name='unique_cartao_principal_por_usuario'
+            )
+        ]
 
     BANDEIRAS = [
         ('visa', 'Visa'),
@@ -274,6 +282,16 @@ class Pedido(models.Model):
         Endereco,
         on_delete=models.SET_NULL,
         null=True,
+        related_name="pedidos"
+    )
+
+    #Cria uma foreign key "cartao_id" na tabela Pedido referente ao id na tabela CartaoCredito
+    #Referente ao endereço selecionado no checkout
+    cartao = models.ForeignKey(
+        CartaoCredito,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="pedidos"
     )
 

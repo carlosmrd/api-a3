@@ -7,11 +7,11 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from app.models import Produto, Estoque, Endereco, ItemCarrinho, Carrinho, ItemPedido, Pedido
+from app.models import Produto, Estoque, Endereco, CartaoCredito, ItemCarrinho, Carrinho, ItemPedido, Pedido
 from app.serializers import (
-    ProdutoSerializer, EstoqueSerializer,UsuarioSerializer, UsuarioDetalhesSerializer,EnderecoSerializer,
-    ItemCarrinhoSerializer, AtualizarItemCarrinhoSerializer, CarrinhoSerializer, PedidoSerializer,
-    CriarPedidoSerializer
+    ProdutoSerializer, EstoqueSerializer,UsuarioSerializer, UsuarioDetalhesSerializer, EnderecoSerializer,
+    CartaoCreditoSerializer, ItemCarrinhoSerializer, AtualizarItemCarrinhoSerializer, CarrinhoSerializer,
+    PedidoSerializer, CriarPedidoSerializer
 )
 
 #Cadastro de Usuário - POST /api/auth/registro/
@@ -96,6 +96,36 @@ class EnderecoViewSet(viewsets.ModelViewSet):
 
         if principal_enviado is True:
             Endereco.objects.filter(
+                usuario=self.request.user
+            ).exclude(id=self.get_object().id).update(principal=False)
+
+        serializer.save()
+
+class CartaoCreditoViewSet(viewsets.ModelViewSet):
+    serializer_class = CartaoCreditoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return CartaoCredito.objects.filter(usuario=self.request.user)
+
+    #Mesmo funcionamento do ViewSet de Endereço
+    @transaction.atomic
+    def perform_create(self, serializer):
+        possui_cartao = CartaoCredito.objects.filter(usuario=self.request.user).exists()
+        principal_enviado = serializer.validated_data.get('principal', False)
+        principal_final = True if not possui_cartao else principal_enviado
+
+        if principal_final:
+            CartaoCredito.objects.filter(usuario=self.request.user).update(principal=False)
+
+        serializer.save(usuario=self.request.user, principal=principal_final)
+
+    @transaction.atomic
+    def perform_update(self, serializer):
+        principal_enviado = serializer.validated_data.get('principal', None)
+
+        if principal_enviado is True:
+            CartaoCredito.objects.filter(
                 usuario=self.request.user
             ).exclude(id=self.get_object().id).update(principal=False)
 
@@ -235,6 +265,12 @@ class PedidoViewSet(viewsets.ModelViewSet):
             usuario=request.user
         )
 
+        #Busca o cartão de crédito recebido no banco
+        cartao = CartaoCredito.objects.get(
+            id=serializer.validated_data['cartao_id'],
+            usuario=request.user
+        )
+
         #Busca o carrinho do usuário logado e verifica se está vazio
         carrinho, _ = Carrinho.objects.get_or_create(usuario=request.user)
         itens_carrinho = ItemCarrinho.objects.filter(
@@ -265,7 +301,10 @@ class PedidoViewSet(viewsets.ModelViewSet):
         pedido = Pedido.objects.create(
             usuario=request.user,
             endereco=endereco,
-            total=total
+            cartao=cartao,
+            total=total,
+            #Define o pedido como pago já que não tem gateway de pagamento
+            status='pago'
         )
 
         #Cria ItemPedido para cada ItemCarrinho e baixa a quantidade correspondente do estoque

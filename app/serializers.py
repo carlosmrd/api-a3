@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
-from app.models import Produto, Estoque, Usuario, Endereco, Carrinho, ItemCarrinho, Pedido, ItemPedido
+from app.models import Produto, Estoque, Usuario, Endereco, Carrinho, ItemCarrinho, Pedido, ItemPedido, CartaoCredito
 
 #Cadastro de usuário
 class UsuarioSerializer(serializers.ModelSerializer):
@@ -34,7 +34,7 @@ class UsuarioDetalhesSerializer(serializers.ModelSerializer):
         #Não exibe senha
         fields = ['id', 'email', 'nome', 'telefone', 'cpf', 'data_nascimento']
 
-#Cadastro de endereço para o usuário logado
+#Serializer para operações do endereço do usuário logado
 class EnderecoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Endereco
@@ -48,6 +48,22 @@ class EnderecoSerializer(serializers.ModelSerializer):
             'cidade',
             'estado',
             'cep',
+            'principal',
+        ]
+        read_only_fields = ['id', 'usuario']
+
+#Serializer para operações do cartão do usuário logado
+class CartaoCreditoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CartaoCredito
+        fields = [
+            'id',
+            'usuario',
+            'nome_titular',
+            'ultimos_digitos',
+            'bandeira',
+            'validade_mes',
+            'validade_ano',
             'principal',
         ]
         read_only_fields = ['id', 'usuario']
@@ -153,17 +169,33 @@ class CarrinhoSerializer(serializers.ModelSerializer):
             for item in obj.itens.all()
         )
 
-#Valida se existe endereço para o checkout
+#Valida se existe endereço e cartão de crédito do usuário para o checkout
 class CriarPedidoSerializer(serializers.Serializer):
     endereco_id = serializers.IntegerField()
+    cartao_id = serializers.IntegerField()
 
-    def validate_endereco_id(self, value):
+    def validate(self, attrs):
         request = self.context['request']
+        endereco_id = attrs.get('endereco_id')
+        cartao_id = attrs.get('cartao_id')
 
-        if not Endereco.objects.filter(id=value, usuario=request.user).exists():
-            raise serializers.ValidationError("Endereço inválido para este usuário.")
+        if not Endereco.objects.filter(
+                id=endereco_id,
+                usuario=request.user
+        ).exists():
+            raise serializers.ValidationError({
+                'endereco_id': 'Endereço inválido para este usuário.'
+            })
 
-        return value
+        if not CartaoCredito.objects.filter(
+                id=cartao_id,
+                usuario=request.user
+        ).exists():
+            raise serializers.ValidationError({
+                'cartao_id': 'Cartão inválido para este usuário.'
+            })
+
+        return attrs
 
 #Leitura para os itens incluídos no pedido pela tabela de estoque
 class ItemPedidoSerializer(serializers.ModelSerializer):
@@ -206,6 +238,7 @@ class PedidoSerializer(serializers.ModelSerializer):
             'id',
             'usuario',
             'endereco',
+            'cartao',
             'status',
             'data_criacao',
             'total',
@@ -214,6 +247,8 @@ class PedidoSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id',
             'usuario',
+            'endereco',
+            'cartao',
             'status',
             'data_criacao',
             'total',
