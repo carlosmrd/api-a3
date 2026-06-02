@@ -1,5 +1,6 @@
 from django.contrib.auth import authenticate
 from django.db import transaction
+from django.db.models import Sum, Count
 from decimal import Decimal
 from rest_framework import status, viewsets
 from rest_framework.authtoken.models import Token
@@ -326,3 +327,44 @@ class PedidoViewSet(viewsets.ModelViewSet):
             PedidoSerializer(pedido).data,
             status=status.HTTP_201_CREATED
         )
+
+#View para relatório de total de vendas por período
+class RelatorioVendasView(APIView):
+    permission_classes = [IsAdminUser]
+
+    #Recebe início e término do intervalo
+    def get(self, request):
+        data_inicio = request.GET.get('data_inicio')
+        data_fim = request.GET.get('data_fim')
+
+        #Recebe os pedidos do banco e filtra por pagos e os dados relacionados das tabelas endereço e cartão
+        pedidos = Pedido.objects.filter(status='pago').select_related(
+            'endereco',
+            'cartao'
+        ).prefetch_related(
+            'itens__estoque__produto'
+        )
+
+        #Filtra pelo intervalo
+        if data_inicio and data_fim:
+            pedidos = pedidos.filter(
+                data_criacao__date__range=[data_inicio, data_fim]
+            )
+
+        #Calcula o relatório
+        resumo = pedidos.aggregate(
+            total_vendido=Sum('total'),
+            quantidade_pedidos=Count('id')
+        )
+
+        pedidos_serializados = PedidoSerializer(pedidos, many=True).data
+
+        return Response({
+            'resumo': {
+                'data_inicio': data_inicio,
+                'data_fim': data_fim,
+                'total_vendido': resumo['total_vendido'] or Decimal('0.00'),
+                'quantidade_pedidos': resumo['quantidade_pedidos'],
+            },
+            'pedidos': pedidos_serializados
+        })

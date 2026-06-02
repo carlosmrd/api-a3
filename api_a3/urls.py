@@ -21,4 +21,5 @@ urlpatterns = [
     path('api/auth/login/', views.LoginView.as_view()),
     path('api/auth/logout/', views.LogoutView.as_view()),
     path('api/auth/perfil/', views.PerfilView.as_view()),
+    path('api/relatorios/vendas/', views.RelatorioVendasView.as_view()),
 ]
