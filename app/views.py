@@ -144,6 +144,25 @@ class ProdutoViewSet(viewsets.ModelViewSet):
         #Permissão de escrita para funcionário
         return [IsAdminUser()]
 
+    #Devolve confirmação do produto deletado assim como tamanhos removidos do estoque
+    def destroy(self, request, *args, **kwargs):
+        produto = self.get_object()
+        nome = produto.nome
+        tamanhos_afetados = list(
+            produto.estoques.values_list('tamanho', flat=True)
+        )
+    
+        produto.delete()
+
+        return Response(
+            {
+                'mensagem': f'Produto "{nome}" removido com sucesso.',
+                'tamanhos_removidos': tamanhos_afetados,
+                'aviso': 'Itens em pedidos existentes foram preservados.'
+            },
+            status=status.HTTP_200_OK
+        )
+
 # lucas - viewset para controlar as quantidades e tamanhos no estoque
 class EstoqueViewSet(viewsets.ModelViewSet):
     queryset = Estoque.objects.all()
