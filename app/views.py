@@ -102,6 +102,19 @@ class EnderecoViewSet(viewsets.ModelViewSet):
 
         serializer.save()
 
+    def destroy(self, request, *args, **kwargs):
+        endereco = self.get_object()
+        descricao = f"{endereco.logradouro}, {endereco.numero} — {endereco.cidade}/{endereco.estado}"
+
+        endereco.delete()
+
+        return Response(
+            {
+                'mensagem': f'Endereço "{descricao}" removido com sucesso.',
+            },
+            status=status.HTTP_200_OK
+        )
+
 class CartaoCreditoViewSet(viewsets.ModelViewSet):
     serializer_class = CartaoCreditoSerializer
     permission_classes = [IsAuthenticated]
@@ -132,6 +145,19 @@ class CartaoCreditoViewSet(viewsets.ModelViewSet):
 
         serializer.save()
 
+    def destroy(self, request, *args, **kwargs):
+        cartao = self.get_object()
+        descricao = f"{cartao.get_bandeira_display()} •••• {cartao.ultimos_digitos}"
+
+        cartao.delete()
+
+        return Response(
+            {
+                'mensagem': f'Cartão "{descricao}" removido com sucesso.',
+            },
+            status=status.HTTP_200_OK
+        )
+
 # lucas - viewset para o CRUD completo de produtos
 class ProdutoViewSet(viewsets.ModelViewSet):
     queryset = Produto.objects.all()
@@ -158,7 +184,7 @@ class ProdutoViewSet(viewsets.ModelViewSet):
             {
                 'mensagem': f'Produto "{nome}" removido com sucesso.',
                 'tamanhos_removidos': tamanhos_afetados,
-                'aviso': 'Itens em pedidos existentes foram preservados.'
+                'aviso': 'Itens em pedidos existentes foram preservados.',
             },
             status=status.HTTP_200_OK
         )
@@ -247,6 +273,20 @@ class ItemCarrinhoViewSet(viewsets.ModelViewSet):
         return Response(
             ItemCarrinhoSerializer(item).data,
             status=status.HTTP_201_CREATED
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        item = self.get_object()
+        produto = item.estoque.produto.nome
+        tamanho = item.estoque.tamanho
+
+        item.delete()
+
+        return Response(
+            {
+                'mensagem': f'Item "{produto} — Tam {tamanho}" removido do carrinho.',
+            },
+            status=status.HTTP_200_OK
         )
 
 #Cria pedido usando o carrinho do usuário logado ao receber uma requisição post com o "endereco_id" do endereço
