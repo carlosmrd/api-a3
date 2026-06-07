@@ -225,10 +225,6 @@ Funcionalidades disponíveis:
 - Cada usuário possui um único carrinho criado automaticamente no primeiro acesso.
 - Cada usuário pode ter apenas um endereço e um cartão marcados como `principal`.
 
-## Aviso
-
-Este projeto é de caráter educacional e foi desenvolvido como um trabalho acadêmico para a entrega A3 da disciplina de Sistemas distribuídos e mobile do primeiro semestre de 2026 na FASEH. O mesmo não deve ser utilizado sem devidas adaptações e validações de segurança.
-
 ### Integrantes
 
 - Carlos ([carlosmrd](https://github.com/carlosmrd))
